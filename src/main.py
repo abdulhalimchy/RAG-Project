@@ -1,496 +1,124 @@
-import pandas as pd
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from sentence_transformers import SentenceTransformer
-import chromadb
-from langchain_core.documents import Document
-from langchain_ollama import OllamaLLM
+from __future__ import annotations
 
-def load_data(path):
-    try:
-        df = pd.read_csv(path, encoding="latin1")
-        print("✅ Data loaded successfully!\n")
-        return df
-    except Exception as e:
-        print("❌ Error loading data:", e)
-        return None
+import argparse
+
+from rag_project.config import get_settings
+from rag_project.data import describe_data, load_data
 
 
-def explore_data(df):
-    print("🔹 First 5 rows:")
-    print(df.head(), "\n")
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Superstore RAG project")
+    subparsers = parser.add_subparsers(dest="command", required=True)
 
-    print("🔹 Columns:")
-    for col in df.columns:
-        print(f"- {col}")
-    print()
+    subparsers.add_parser("inspect", help="Show dataset information")
 
-    print("🔹 Data Info:")
-    print(df.info(), "\n")
-
-
-def create_transaction_documents(df):
-    documents = []
-
-    df = df.copy()
-    df["Order Date"] = pd.to_datetime(df["Order Date"])
-    df["Year"] = df["Order Date"].dt.year
-
-    for _, row in df.iterrows():
-        text = f"""
-        Order {row['Order ID']} was placed on {row['Order Date'].date()} by {row['Customer Name']}
-        from the {row['Segment']} segment in {row['City']}, {row['State']} ({row['Region']} region).
-        The customer purchased {row['Product Name']} from the {row['Category']} category,
-        sub-category {row['Sub-Category']}.
-        Sales were {row['Sales']:.2f}, quantity was {row['Quantity']},
-        discount was {row['Discount']:.2f}, and profit was {row['Profit']:.2f}.
-        """
-
-        documents.append(Document(
-            page_content=text.strip(),
-            metadata={
-                "type": "transaction",
-                "year": int(row["Year"]),
-                "region": row["Region"],
-                "category": row["Category"],
-                "sub_category": row["Sub-Category"]
-            }
-        ))
-
-    return documents
-
-def create_summary_documents(df):
-    documents = []
-
-    df = df.copy()
-
-    df["Order Date"] = pd.to_datetime(df["Order Date"])
-    df["Year"] = df["Order Date"].dt.year
-    df["YearMonth"] = df["Order Date"].dt.to_period("M").astype(str)
-
-    def add_doc(text, metadata):
-        documents.append(Document(
-            page_content=text.strip(),
-            metadata=metadata
-        ))
-
-    total_sales = df["Sales"].sum()
-    total_profit = df["Profit"].sum()
-    total_quantity = df["Quantity"].sum()
-    avg_discount = df["Discount"].mean()
-    profit_margin = (total_profit / total_sales) * 100
-
-    add_doc(f"""
-    Overall, the dataset contains {len(df)} transactions.
-    Total sales were {total_sales:.2f}, total profit was {total_profit:.2f},
-    total quantity sold was {total_quantity}, average discount was {avg_discount:.2f},
-    and overall profit margin was {profit_margin:.2f}%.
-    """, {
-        "type": "overall_summary"
-    })
-
-    yearly = df.groupby("Year").agg(
-        Sales=("Sales", "sum"),
-        Profit=("Profit", "sum"),
-        Quantity=("Quantity", "sum"),
-        Discount=("Discount", "mean")
-    ).reset_index()
-
-    for _, row in yearly.iterrows():
-        margin = (row["Profit"] / row["Sales"]) * 100
-        add_doc(f"""
-        In {int(row['Year'])}, total sales were {row['Sales']:.2f},
-        total profit was {row['Profit']:.2f}, total quantity sold was {int(row['Quantity'])},
-        average discount was {row['Discount']:.2f}, and profit margin was {margin:.2f}%.
-        """, {
-            "type": "yearly_summary",
-            "year": int(row["Year"])
-        })
-
-    monthly = df.groupby("YearMonth").agg(
-        Sales=("Sales", "sum"),
-        Profit=("Profit", "sum"),
-        Quantity=("Quantity", "sum"),
-        Discount=("Discount", "mean")
-    ).reset_index()
-
-    for _, row in monthly.iterrows():
-        margin = (row["Profit"] / row["Sales"]) * 100
-        add_doc(f"""
-        In {row['YearMonth']}, total sales were {row['Sales']:.2f},
-        total profit was {row['Profit']:.2f}, total quantity sold was {int(row['Quantity'])},
-        average discount was {row['Discount']:.2f}, and profit margin was {margin:.2f}%.
-        """, {
-            "type": "monthly_summary",
-            "year_month": row["YearMonth"]
-        })
-
-    category = df.groupby("Category").agg(
-        Sales=("Sales", "sum"),
-        Profit=("Profit", "sum"),
-        Quantity=("Quantity", "sum"),
-        Discount=("Discount", "mean")
-    ).reset_index()
-
-    for _, row in category.iterrows():
-        margin = (row["Profit"] / row["Sales"]) * 100
-        add_doc(f"""
-        The {row['Category']} category generated total sales of {row['Sales']:.2f},
-        total profit of {row['Profit']:.2f}, total quantity sold of {int(row['Quantity'])},
-        average discount of {row['Discount']:.2f}, and profit margin of {margin:.2f}%.
-        """, {
-            "type": "category_summary",
-            "category": row["Category"]
-        })
-
-    category_year = df.groupby(["Year", "Category"]).agg(
-        Sales=("Sales", "sum"),
-        Profit=("Profit", "sum"),
-        Quantity=("Quantity", "sum"),
-        Discount=("Discount", "mean")
-    ).reset_index()
-
-    for _, row in category_year.iterrows():
-        margin = (row["Profit"] / row["Sales"]) * 100
-        add_doc(f"""
-        In {int(row['Year'])}, the {row['Category']} category had sales of {row['Sales']:.2f},
-        profit of {row['Profit']:.2f}, quantity sold of {int(row['Quantity'])},
-        average discount of {row['Discount']:.2f}, and profit margin of {margin:.2f}%.
-        """, {
-            "type": "category_year_summary",
-            "year": int(row["Year"]),
-            "category": row["Category"]
-        })
-
-    sub_category = df.groupby("Sub-Category").agg(
-        Sales=("Sales", "sum"),
-        Profit=("Profit", "sum"),
-        Quantity=("Quantity", "sum"),
-        Discount=("Discount", "mean")
-    ).reset_index()
-
-    for _, row in sub_category.iterrows():
-        margin = (row["Profit"] / row["Sales"]) * 100
-        add_doc(f"""
-        The {row['Sub-Category']} sub-category generated sales of {row['Sales']:.2f},
-        profit of {row['Profit']:.2f}, quantity sold of {int(row['Quantity'])},
-        average discount of {row['Discount']:.2f}, and profit margin of {margin:.2f}%.
-        """, {
-            "type": "subcategory_summary",
-            "sub_category": row["Sub-Category"]
-        })
-
-    region = df.groupby("Region").agg(
-        Sales=("Sales", "sum"),
-        Profit=("Profit", "sum"),
-        Quantity=("Quantity", "sum"),
-        Discount=("Discount", "mean")
-    ).reset_index()
-
-    for _, row in region.iterrows():
-        margin = (row["Profit"] / row["Sales"]) * 100
-        add_doc(f"""
-        The {row['Region']} region achieved total sales of {row['Sales']:.2f},
-        total profit of {row['Profit']:.2f}, total quantity sold of {int(row['Quantity'])},
-        average discount of {row['Discount']:.2f}, and profit margin of {margin:.2f}%.
-        """, {
-            "type": "region_summary",
-            "region": row["Region"]
-        })
-
-    region_year = df.groupby(["Year", "Region"]).agg(
-        Sales=("Sales", "sum"),
-        Profit=("Profit", "sum"),
-        Quantity=("Quantity", "sum"),
-        Discount=("Discount", "mean")
-    ).reset_index()
-
-    for _, row in region_year.iterrows():
-        margin = (row["Profit"] / row["Sales"]) * 100
-        add_doc(f"""
-        In {int(row['Year'])}, the {row['Region']} region had sales of {row['Sales']:.2f},
-        profit of {row['Profit']:.2f}, quantity sold of {int(row['Quantity'])},
-        average discount of {row['Discount']:.2f}, and profit margin of {margin:.2f}%.
-        """, {
-            "type": "region_year_summary",
-            "year": int(row["Year"]),
-            "region": row["Region"]
-        })
-
-    state = df.groupby("State").agg(
-        Sales=("Sales", "sum"),
-        Profit=("Profit", "sum"),
-        Quantity=("Quantity", "sum")
-    ).reset_index()
-
-    top_states = state.sort_values("Sales", ascending=False).head(10)
-
-    for _, row in top_states.iterrows():
-        add_doc(f"""
-        The state of {row['State']} is one of the top states by sales.
-        Total sales were {row['Sales']:.2f}, total profit was {row['Profit']:.2f},
-        and total quantity sold was {int(row['Quantity'])}.
-        """, {
-            "type": "top_state_summary",
-            "state": row["State"]
-        })
-
-    city = df.groupby("City").agg(
-        Sales=("Sales", "sum"),
-        Profit=("Profit", "sum"),
-        Quantity=("Quantity", "sum")
-    ).reset_index()
-
-    top_cities = city.sort_values("Sales", ascending=False).head(10)
-
-    for _, row in top_cities.iterrows():
-        add_doc(f"""
-        The city of {row['City']} is one of the top cities by sales.
-        Total sales were {row['Sales']:.2f}, total profit was {row['Profit']:.2f},
-        and total quantity sold was {int(row['Quantity'])}.
-        """, {
-            "type": "top_city_summary",
-            "city": row["City"]
-        })
-
-    top_category_sales = category.sort_values("Sales", ascending=False).iloc[0]
-    top_category_profit = category.sort_values("Profit", ascending=False).iloc[0]
-    top_region_sales = region.sort_values("Sales", ascending=False).iloc[0]
-    top_region_profit = region.sort_values("Profit", ascending=False).iloc[0]
-    top_subcat_profit = sub_category.sort_values("Profit", ascending=False).iloc[0]
-
-    add_doc(f"""
-    The category with the highest total sales was {top_category_sales['Category']}
-    with sales of {top_category_sales['Sales']:.2f}.
-    The category with the highest total profit was {top_category_profit['Category']}
-    with profit of {top_category_profit['Profit']:.2f}.
-    """, {
-        "type": "top_performer_summary"
-    })
-
-    add_doc(f"""
-    The region with the highest total sales was {top_region_sales['Region']}
-    with sales of {top_region_sales['Sales']:.2f}.
-    The region with the highest total profit was {top_region_profit['Region']}
-    with profit of {top_region_profit['Profit']:.2f}.
-    """, {
-        "type": "top_performer_summary"
-    })
-
-    add_doc(f"""
-    The sub-category with the highest total profit was {top_subcat_profit['Sub-Category']}
-    with profit of {top_subcat_profit['Profit']:.2f}.
-    """, {
-        "type": "top_performer_summary"
-    })
-
-    high_discount = df[df["Discount"] >= 0.30]
-    low_discount = df[df["Discount"] < 0.30]
-
-    add_doc(f"""
-    Transactions with high discounts of 30% or more had total sales of {high_discount['Sales'].sum():.2f}
-    and total profit of {high_discount['Profit'].sum():.2f}.
-    Transactions with discounts below 30% had total sales of {low_discount['Sales'].sum():.2f}
-    and total profit of {low_discount['Profit'].sum():.2f}.
-    This summary helps analyze how discount levels relate to profitability.
-    """, {
-        "type": "discount_profit_summary"
-    })
-
-    return documents
-
-def chunk_documents(documents):
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=100
+    ingest_parser = subparsers.add_parser("ingest", help="Embed and store documents")
+    ingest_parser.add_argument(
+        "--rebuild",
+        action="store_true",
+        help="Delete and recreate the Chroma collection before ingesting",
     )
 
-    chunks = text_splitter.split_documents(documents)
+    ask_parser = subparsers.add_parser("ask", help="Ask a question against the vector store")
+    ask_parser.add_argument("question", help="Question to ask")
+    ask_parser.add_argument(
+        "--show-context",
+        action="store_true",
+        help="Print retrieved documents before the final answer",
+    )
 
-    return chunks
+    return parser
 
-def create_embeddings(chunks):
-    model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
-    texts = [chunk.page_content for chunk in chunks]
+def run_inspect() -> None:
+    settings = get_settings()
+    df = load_data(settings.data_path)
+    print(describe_data(df))
 
-    embeddings = model.encode(texts)
 
-    return embeddings, model
-
-## Store chunks and embeddings in ChromaDB
-def store_in_chromadb(chunks, embeddings):
-    print("🔄 Initializing ChromaDB...")
-
-    client = chromadb.PersistentClient(path="./chroma_db")
-
+def run_ingest(rebuild: bool) -> None:
     try:
-        client.delete_collection("sales_rag")
-    except Exception:
-        pass
-
-    collection = client.get_or_create_collection(name="sales_rag")
-
-    print("🔄 Storing documents in ChromaDB...")
-
-    documents = [chunk.page_content for chunk in chunks]
-    metadatas = [chunk.metadata for chunk in chunks]
-    ids = [f"id_{i}" for i in range(len(chunks))]
-    embeddings_list = embeddings.tolist()
-
-    batch_size = 1000
-
-    for i in range(0, len(chunks), batch_size):
-        collection.add(
-            documents=documents[i:i + batch_size],
-            embeddings=embeddings_list[i:i + batch_size],
-            metadatas=metadatas[i:i + batch_size],
-            ids=ids[i:i + batch_size]
+        from rag_project.documents import build_documents
+        from rag_project.vector_store import (
+            chunk_documents,
+            embed_documents,
+            get_collection,
+            load_embedding_model,
+            rebuild_collection,
         )
+    except ImportError as exc:
+        raise SystemExit(
+            "Missing RAG dependencies. Install them with `pip install -r requirements.txt`."
+        ) from exc
 
-    print("✅ Stored in ChromaDB")
-
-    return collection
-
-## Get or create ChromaDB collection (with option to rebuild)
-def get_or_create_chromadb(chunks, embeddings, rebuild=False):
-    client = chromadb.PersistentClient(path="./chroma_db")
+    settings = get_settings()
+    df = load_data(settings.data_path)
+    documents = build_documents(df)
+    chunks = chunk_documents(documents, settings)
+    embedding_model = load_embedding_model(settings)
+    embeddings = embed_documents(embedding_model, chunks)
 
     if rebuild:
-        try:
-            client.delete_collection("sales_rag")
-        except Exception:
-            pass
+        collection = rebuild_collection(settings, chunks, embeddings)
+    else:
+        existing_collection = get_collection(settings)
+        if existing_collection.count() > 0:
+            print(
+                f"Collection '{settings.collection_name}' already has "
+                f"{existing_collection.count()} documents. Use --rebuild to refresh it."
+            )
+            return
+        collection = rebuild_collection(settings, chunks, embeddings)
 
-    collection = client.get_or_create_collection(name="sales_rag")
+    print(
+        f"Ingested {len(documents)} documents and stored {collection.count()} chunks "
+        f"in '{settings.collection_name}'."
+    )
 
-    if collection.count() > 0 and not rebuild:
-        print(f"✅ Loaded existing ChromaDB with {collection.count()} documents")
-        return collection
 
-    print("🔄 Storing documents in ChromaDB...")
+def run_ask(question: str, show_context: bool) -> None:
+    try:
+        from rag_project.rag import answer_question
+        from rag_project.vector_store import get_collection, load_embedding_model
+    except ImportError as exc:
+        raise SystemExit(
+            "Missing RAG dependencies. Install them with `pip install -r requirements.txt`."
+        ) from exc
 
-    documents = [chunk.page_content for chunk in chunks]
-    metadatas = [chunk.metadata for chunk in chunks]
-    ids = [f"id_{i}" for i in range(len(chunks))]
-    embeddings_list = embeddings.tolist()
-
-    batch_size = 1000
-
-    for i in range(0, len(chunks), batch_size):
-        collection.add(
-            documents=documents[i:i + batch_size],
-            embeddings=embeddings_list[i:i + batch_size],
-            metadatas=metadatas[i:i + batch_size],
-            ids=ids[i:i + batch_size]
+    settings = get_settings()
+    collection = get_collection(settings)
+    if collection.count() == 0:
+        raise SystemExit(
+            "The vector store is empty. Run `python3 src/main.py ingest --rebuild` first."
         )
 
-    print(f"✅ Stored {collection.count()} documents in ChromaDB")
-    return collection
-
-def test_query(collection, model):
-    query = "Which region has the best sales performance?"
-
-    query_embedding = model.encode([query]).tolist()
-
-    results = collection.query(
-        query_embeddings=query_embedding,
-        n_results=3
+    embedding_model = load_embedding_model(settings)
+    answer, context = answer_question(
+        collection=collection,
+        embedding_model=embedding_model,
+        settings=settings,
+        question=question,
     )
 
-    print("\n🔍 Query:", query)
-    print("\n🔹 Retrieved Results:")
+    if show_context:
+        print("Retrieved context:\n")
+        for index, item in enumerate(context, start=1):
+            print(f"{index}. {item}\n")
 
-    for doc in results["documents"][0]:
-        print("-", doc[:200])
+    print(answer)
 
-def ask_rag_question(collection, embedding_model, question):
-    query_embedding = embedding_model.encode([question]).tolist()
 
-    results = collection.query(
-        query_embeddings=query_embedding,
-        n_results=10
-    )
+def main() -> None:
+    parser = build_parser()
+    args = parser.parse_args()
 
-    retrieved_docs = results["documents"][0]
-    context = "\n\n".join(retrieved_docs)
-    print("###CCONTEXT:  ")
-    print(context)
-    print()
-    prompt = f"""
-    You are a sales data analyst.
+    if args.command == "inspect":
+        run_inspect()
+    elif args.command == "ingest":
+        run_ingest(rebuild=args.rebuild)
+    elif args.command == "ask":
+        run_ask(question=args.question, show_context=args.show_context)
 
-    Use ONLY the provided context to answer the question.
-    For questions about "best sales performance", interpret performance mainly using total sales.
-    If profit is also available, mention it as supporting evidence.
-
-    Do not say the data is insufficient if the context contains direct sales or profit comparisons.
-
-    Context:
-    {context}
-
-    Question:
-    {question}
-
-    Answer clearly and briefly:
-    """
-
-    llm = OllamaLLM(model="llama3.2:3b")
-    response = llm.invoke(prompt)
-
-    return response
-
-def main():
-    path = "data/Sample - Superstore.csv"
-
-    df = load_data(path)
-
-    if df is not None:
-        explore_data(df)
-
-        transaction_documents = create_transaction_documents(df)
-        summary_documents = create_summary_documents(df)
-
-        all_documents = transaction_documents + summary_documents
-
-        chunks = chunk_documents(all_documents)
-
-        embeddings, model = create_embeddings(chunks)
-
-        collection = get_or_create_chromadb(chunks, embeddings, rebuild=False)
-
-        # print(f"✅ Transaction docs: {len(transaction_documents)}")
-        # print(f"✅ Summary docs: {len(summary_documents)}\n")
-
-        # print(f"✅ Total documents before chunking: {len(all_documents)}")
-        # print(f"✅ Total chunks after chunking: {len(chunks)}\n")
-
-        # # 🔹 Sample transaction document
-        # print("🔹 Sample TRANSACTION document:")
-        # print(transaction_documents[0].page_content)
-        # print("Metadata:", transaction_documents[0].metadata)
-        # print()
-
-        # # 🔹 Sample summary document
-        # print("🔹 Sample SUMMARY document:")
-        # print(summary_documents[0].page_content)
-        # print("Metadata:", summary_documents[0].metadata)
-        # print()
-
-        # # 🔹 Sample chunk
-        # print("🔹 Sample CHUNK:")
-        # print(chunks[0].page_content)
-        # print("Metadata:", chunks[0].metadata)
-        # print()
-
-        question = "Which region has the best sales performance?"
-
-        answer = ask_rag_question(collection, model, question)
-
-        print("\n❓ Question:")
-        print(question)
-
-        print("\n🤖 RAG Answer:")
-        print(answer)
 
 if __name__ == "__main__":
     main()
