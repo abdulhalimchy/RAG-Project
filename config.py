@@ -59,19 +59,12 @@ LLM_MODEL = "llama3.2:3b"
 # Maximum words expected in LLM response
 MAX_RESPONSE_WORDS = 150
 
-# -------------------------------------------------------------
-# CHUNKING
-# -------------------------------------------------------------
-
-# Minimum character length for a chunk to be stored
-# Chunks shorter than this are skipped
-MIN_CHUNK_LENGTH = 50
 
 # -------------------------------------------------------------
 # ANALYSIS QUERIES
 # -------------------------------------------------------------
 
-# The 5 required analytical queries for the project
+# The 5 required analytical queries
 ANALYSIS_QUERIES = [
     "What is the sales trend over the 4-year period from 2014 to 2017?",
     "Which product category generates the most revenue and profit?",
