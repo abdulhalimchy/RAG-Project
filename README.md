@@ -168,10 +168,13 @@ Run evaluation without saving results:
 
 AI tools, mainly ChatGPT and Claude, were used as study and development assistants during the project. At first, we used AI to understand the basic concepts of RAG, including indexing, retrieval, generation, embeddings, vector databases, metadata, and the role of aggregated summaries.
 
-AI was also used during development to support data preparation, converting tabular rows into natural language chunks, deciding useful aggregated summary types, choosing metadata fields, designing prompts, debugging errors, reviewing code, and improving/refactoring the project structure. We provided the project instructions, dataset details, and our implementation requirements when asking for AI assistance.
+AI was also used during development to support data preparation, converting tabular rows into natural language chunks, deciding useful aggregated summary types, choosing metadata fields, designing prompts, debugging errors, reviewing code, and improving/refactoring the project structure. We provided the project instructions, dataset details, and our implementation requirements when asking for AI assistance. AI was also used to help improve documentation, including explaining modules, writing clearer comments, structuring the report, and preparing presentation content.
 
-Some AI-generated suggestions needed modification. For example, we had to debug API-related issues, improve the prompt when the LLM gave vague answers, adjust the chunking and retrieval strategy, and handle vector database storage more efficiently. We reviewed and tested the generated code ourselves instead of using it directly.
+Some AI-generated suggestions needed modification. For example, some generated code used outdated library APIs or missed optimization details. We tested the system after each major phase, checked the actual error messages, and made corrections ourselves. We also improved the prompt when the LLM gave vague answers, adjusted the chunking and retrieval strategy, and handled vector database storage more efficiently. Overall, AI was useful for guidance, but it was not always fully correct or optimized. Therefore, we reviewed, tested, debugged, and verified the generated code ourselves instead of using it directly.
+
 Our main contribution was understanding the system, making architectural decisions, selecting useful chunk types, designing metadata, integrating the modules, testing the pipeline, evaluating outputs, and improving the prompt based on real results. Overall, AI tools helped us learn faster and improve the system, but the final implementation, testing, evaluation, and design decisions were completed by us.
+
+
 
 
 ---
