@@ -84,8 +84,13 @@ relevant data and generates accurate answers using a local LLM.
 
 3. Create and activate virtual environment
 
-    python3 -m venv venv
-    source venv/bin/activate
+    Linux / Ubuntu:
+        python3 -m venv venv
+        source venv/bin/activate
+
+    Windows:
+        python -m venv venv
+        venv\Scripts\activate
 
 4. Install dependencies
 
@@ -120,9 +125,15 @@ Run evaluation against 30 ground truth questions:
 
     python -m rag.evaluator
 
+    Calculates ground truth answers for 30 questions directly from
+the dataset, runs them through the RAG pipeline, and compares
+the results. Saves accuracy report to results/evaluation.json.
+
 Run evaluation without saving results:
 
     python -m rag.evaluator --nosave
+
+    Same as above but prints results to terminal only.
 
 ---
 
@@ -151,7 +162,9 @@ Run evaluation without saving results:
 
 ## AI Tool Usage
 
-This project was developed with assistance from Claude AI for code generation in some cases, improving documentation and guidance. All code was reviewed, tested, debugged, and understood by the team.
+This project was developed with assistance from Claude AI
+(Anthropic) for code generation and guidance. All code was
+reviewed, tested, debugged, and understood by the team.
 Full disclosure is provided in the technical report.
 
 ---
@@ -161,7 +174,3 @@ Full disclosure is provided in the technical report.
     Course     : Data Warehouse Course
     University : University of Helsinki
     Instructor : Jiaheng Lu
-
-## Developed by
-
-    Abdul Halim Chowdhury & Md Hridoy Chowdhury
