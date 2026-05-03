@@ -126,8 +126,12 @@ Run evaluation against 30 ground truth questions:
     python -m rag.evaluator
 
     Calculates ground truth answers for 30 questions directly from
-the dataset, runs them through the RAG pipeline, and compares
-the results. Saves accuracy report to results/evaluation.json.
+    the dataset and measures two things:
+      - Retrieval accuracy: was the expected answer found in the
+        retrieved chunks before the LLM?
+      - Answer accuracy: did the LLM response contain the correct
+        answer?
+    Saves full report to results/evaluation.json.
 
 Run evaluation without saving results:
 
