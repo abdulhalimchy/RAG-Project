@@ -20,7 +20,7 @@ relevant data and generates accurate answers using a local LLM.
     Dataset (CSV)
         |
         v
-    Data Preparation        - converts rows to text chunks
+    Data Preparation        - Data Preparation – created row-level text chunks and aggregated summary chunks
         |
         v
     Vector Database         - stores chunks as vectors (ChromaDB)
@@ -63,7 +63,7 @@ relevant data and generates accurate answers using a local LLM.
 - Python 3.10+
 - Ollama installed and running
 - 8GB RAM minimum
-- 5GB free disk space
+- 5GB free disk space (Recommended)
 
 ---
 
@@ -166,9 +166,13 @@ Run evaluation without saving results:
 
 ## AI Tool Usage
 
-This project was developed with assistance from Claude AI for code generation in some cases and guidance. All code was
-reviewed, tested, debugged, and understood by the team.
-Full disclosure is provided in the technical report.
+AI tools, mainly ChatGPT and Claude, were used as study and development assistants during the project. At first, we used AI to understand the basic concepts of RAG, including indexing, retrieval, generation, embeddings, vector databases, metadata, and the role of aggregated summaries.
+
+AI was also used during development to support data preparation, converting tabular rows into natural language chunks, deciding useful aggregated summary types, choosing metadata fields, designing prompts, debugging errors, reviewing code, and improving/refactoring the project structure. We provided the project instructions, dataset details, and our implementation requirements when asking for AI assistance.
+
+Some AI-generated suggestions needed modification. For example, we had to debug API-related issues, improve the prompt when the LLM gave vague answers, adjust the chunking and retrieval strategy, and handle vector database storage more efficiently. We reviewed and tested the generated code ourselves instead of using it directly.
+Our main contribution was understanding the system, making architectural decisions, selecting useful chunk types, designing metadata, integrating the modules, testing the pipeline, evaluating outputs, and improving the prompt based on real results. Overall, AI tools helped us learn faster and improve the system, but the final implementation, testing, evaluation, and design decisions were completed by us.
+
 
 ---
 
