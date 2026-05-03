@@ -43,7 +43,7 @@ TOP_K_RESULTS = 10
 
 # Batch size for storing chunks into ChromaDB
 # 500 is safe for memory — adjust if needed
-BATCH_SIZE = 500
+BATCH_SIZE = 1000
 
 # -------------------------------------------------------------
 # LLM (Large Language Model)
