@@ -22,9 +22,6 @@ DATA_PATH = os.path.join(ROOT_DIR, "data", "Superstore.csv")
 # Path to save generated chunks
 CHUNKS_SAVE_PATH = os.path.join(ROOT_DIR, "results", "chunks.json")
 
-# Path to save RAG query results
-RESULTS_SAVE_PATH = os.path.join(ROOT_DIR, "results", "rag_results.json")
-
 # -------------------------------------------------------------
 # EMBEDDING MODEL
 # -------------------------------------------------------------
@@ -55,20 +52,3 @@ BATCH_SIZE = 500
 # Ollama model name — must be pulled before running
 # Run: ollama pull llama3.2:3b
 LLM_MODEL = "llama3.2:3b"
-
-# Maximum words expected in LLM response
-MAX_RESPONSE_WORDS = 150
-
-
-# -------------------------------------------------------------
-# ANALYSIS QUERIES
-# -------------------------------------------------------------
-
-# The 5 required analytical queries
-ANALYSIS_QUERIES = [
-    "What is the sales trend over the 4-year period from 2014 to 2017?",
-    "Which product category generates the most revenue and profit?",
-    "Which region has the best sales performance?",
-    "Which months show the highest sales? Is there seasonality?",
-    "Compare Technology vs Furniture sales and profit performance."
-]
