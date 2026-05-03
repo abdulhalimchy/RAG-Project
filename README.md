@@ -10,9 +10,8 @@ University of Helsinki.
 
 This project builds a RAG pipeline that answers analytical
 questions about a superstore sales dataset (2014-2017).
-Instead of writing manual queries, users ask natural language
-questions and the system retrieves relevant data and generates
-accurate answers using a local LLM.
+Users ask natural language questions and the system retrieves
+relevant data and generates accurate answers using a local LLM.
 
 ---
 
@@ -30,7 +29,7 @@ accurate answers using a local LLM.
     RAG Pipeline            - retrieves relevant chunks + asks LLM
         |
         v
-    Evaluation              - compares answers against ground truth
+    Interactive Mode        - user asks questions, system answers
 
 ---
 
@@ -39,29 +38,23 @@ accurate answers using a local LLM.
     RAG-Project/
     |
     |-- data/
-    |   |-- superstore.csv              # dataset (download manually)
+    |   |-- Superstore.csv               # dataset (download manually)
     |
     |-- rag/
     |   |-- __init__.py
-    |   |-- data_preparation.py         # load, clean, chunk data
-    |   |-- vector_store.py             # ChromaDB setup and retrieval
-    |   |-- rag_pipeline.py             # RAG pipeline and LLM integration
-    |   |-- evaluator.py                # accuracy evaluation
-    |
-    |-- tests/
-    |   |-- test_data_preparation.py
-    |   |-- test_vector_store.py
-    |   |-- test_rag_pipeline.py
-    |   |-- test_evaluator.py
+    |   |-- data_preparation.py          # load, clean, chunk data
+    |   |-- vector_store.py              # ChromaDB setup and retrieval
+    |   |-- rag_pipeline.py              # RAG pipeline and LLM integration
+    |   |-- evaluator.py                 # accuracy evaluation (30 questions)
     |
     |-- results/
-    |   |-- chunks.json                 # generated chunks (auto created)
-    |   |-- rag_results.json            # query results (auto created)
+    |   |-- chunks.json                  # generated chunks (auto created)
+    |   |-- evaluation.json              # evaluation results (auto created)
     |
-    |-- main.py                         # entry point
-    |-- config.py                       # all settings
-    |-- requirements.txt                # dependencies
-    |-- README.md                       # this file
+    |-- main.py                          # entry point - interactive mode
+    |-- config.py                        # all settings
+    |-- requirements.txt                 # dependencies
+    |-- README.md                        # this file
 
 ---
 
@@ -87,7 +80,7 @@ accurate answers using a local LLM.
     https://www.kaggle.com/datasets/vivek468/superstore-dataset-final
 
     Place the CSV file in the data/ folder:
-    data/Sample - Superstore.csv
+    data/Superstore.csv
 
 3. Create and activate virtual environment
 
@@ -110,33 +103,26 @@ accurate answers using a local LLM.
 
 ## Usage
 
-Run the full pipeline:
+Run the interactive query mode:
 
     python main.py
 
 This will:
 - Load and prepare the dataset
 - Build the vector database
-- Run 5 analytical queries
-- Evaluate accuracy
-- Save results to results/rag_results.json
+- Start interactive mode where you can ask any question
 
-Run individual tests:
+Force rebuild chunks:
 
-    python tests/test_data_preparation.py
-    python tests/test_vector_store.py
-    python tests/test_rag_pipeline.py
-    python tests/test_evaluator.py
+    python main.py --rebuild
 
----
+Run evaluation against 30 ground truth questions:
 
-## Analysis Queries
+    python -m rag.evaluator
 
-1. What is the sales trend over the 4-year period from 2014 to 2017?
-2. Which product category generates the most revenue and profit?
-3. Which region has the best sales performance?
-4. Which months show the highest sales? Is there seasonality?
-5. Compare Technology vs Furniture sales and profit performance.
+Run evaluation without saving results:
+
+    python -m rag.evaluator --nosave
 
 ---
 
@@ -144,11 +130,11 @@ Run individual tests:
 
     Component        Tool
     ---------------- ------------------------------
-    Language         Python 3.12
+    Language         Python 3.10+
     Vector Database  ChromaDB
     Embeddings       all-MiniLM-L6-v2
     LLM              Ollama + Llama 3.2 3B
-    Data Processing  Pandas, NumPy
+    Data Processing  Pandas
     RAG Framework    Custom implementation
 
 ---
@@ -165,17 +151,8 @@ Run individual tests:
 
 ## AI Tool Usage
 
-This project was developed with assistance from Claude AI
-(Anthropic) for code generation and guidance. All code was
-reviewed, tested, debugged, and understood by the team.
+This project was developed with assistance from Claude AI for code generation in some cases, improving documentation and guidance. All code was reviewed, tested, debugged, and understood by the team.
 Full disclosure is provided in the technical report.
-
----
-
-## Team
-
-    Member A : data preparation, chunking, technical report
-    Member B : vector database, RAG pipeline, demo preparation
 
 ---
 
@@ -184,3 +161,7 @@ Full disclosure is provided in the technical report.
     Course     : Data Warehouse Course
     University : University of Helsinki
     Instructor : Jiaheng Lu
+
+## Developed by
+
+    Abdul Halim Chowdhury & Md Hridoy Chowdhury
