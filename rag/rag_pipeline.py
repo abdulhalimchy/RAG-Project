@@ -27,13 +27,9 @@
 # =============================================================
 
 import ollama
-import json
-import os
 from config import (
     LLM_MODEL,
     TOP_K_RESULTS,
-    RESULTS_SAVE_PATH,
-    ANALYSIS_QUERIES
 )
 
 
@@ -206,69 +202,3 @@ def rag_query(question, collection, embedder, n_results=None):
         "answer"  : answer,
         "chunks"  : context
     }
-
-
-# -------------------------------------------------------------
-# RUN ALL QUERIES
-# -------------------------------------------------------------
-
-def run_analysis(collection, embedder):
-    """
-    Runs all 5 required analytical queries through the RAG pipeline
-    and saves results to a JSON file.
-
-    The 5 queries cover:
-        1. Sales trend analysis
-        2. Category performance
-        3. Regional performance
-        4. Seasonality analysis
-        5. Comparative analysis
-
-    Args:
-        collection : ChromaDB collection
-        embedder   : loaded SentenceTransformer model
-
-    Returns:
-        results (list): list of question/answer dicts
-    """
-
-    print("\nRunning all analysis queries...")
-    print(f"Total queries: {len(ANALYSIS_QUERIES)}")
-
-    results = []
-
-    for i, question in enumerate(ANALYSIS_QUERIES, 1):
-        print(f"\nQuery {i} of {len(ANALYSIS_QUERIES)}")
-        result = rag_query(question, collection, embedder)
-        results.append(result)
-
-    # Save results to file
-    save_results(results)
-
-    return results
-
-
-# -------------------------------------------------------------
-# SAVE RESULTS
-# -------------------------------------------------------------
-
-def save_results(results):
-    """
-    Saves all query results to a JSON file.
-
-    Args:
-        results (list): list of question/answer dicts
-    """
-
-    os.makedirs(os.path.dirname(RESULTS_SAVE_PATH), exist_ok=True)
-
-    # Remove chunks from saved results to keep file clean
-    clean_results = [
-        {"question": r["question"], "answer": r["answer"]}
-        for r in results
-    ]
-
-    with open(RESULTS_SAVE_PATH, 'w') as f:
-        json.dump(clean_results, f, indent=2)
-
-    print(f"\nResults saved to: {RESULTS_SAVE_PATH}")
