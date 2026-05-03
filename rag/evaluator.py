@@ -171,10 +171,12 @@ def build_ground_truth(df):
 def evaluate(df, collection, embedder, save=True):
     """
     Runs 30 ground truth questions through the RAG pipeline
-    and measures accuracy.
+    and measures both retrieval accuracy and answer accuracy.
 
-    A question is marked correct if the expected keyword
-    appears anywhere in the RAG answer (case-insensitive).
+    Retrieval accuracy : checks if expected keyword appears
+                         in the retrieved chunks (before LLM)
+    Answer accuracy    : checks if expected keyword appears
+                         in the final LLM response
 
     Args:
         df         : cleaned pandas DataFrame
@@ -183,10 +185,11 @@ def evaluate(df, collection, embedder, save=True):
         save       : if True, saves results to results/evaluation.json
 
     Returns:
-        dict with results and accuracy score
+        dict with results and accuracy scores
     """
 
     from rag.rag_pipeline import rag_query
+    from rag.vector_store import retrieve
 
     ground_truth = build_ground_truth(df)
 
@@ -194,40 +197,58 @@ def evaluate(df, collection, embedder, save=True):
     print("EVALUATION — 30 Ground Truth Questions")
     print("=" * 60)
 
-    correct = 0
-    results = []
+    retrieval_correct = 0
+    answer_correct    = 0
+    results           = []
 
     for i, item in enumerate(ground_truth, 1):
-        result    = rag_query(item['question'], collection, embedder)
-        answer    = result['answer']
-        expected  = str(item['expected'])
-        is_correct = expected.lower() in answer.lower()
-        correct   += 1 if is_correct else 0
-        status     = "CORRECT" if is_correct else "WRONG"
+        expected = str(item['expected'])
+
+        # --- Retrieval check ---
+        chunks         = retrieve(item['question'], collection, embedder)
+        retrieval_hit  = any(expected.lower() in c.lower() for c in chunks)
+        retrieval_correct += 1 if retrieval_hit else 0
+
+        # --- Answer check ---
+        result     = rag_query(item['question'], collection, embedder)
+        answer     = result['answer']
+        answer_hit = expected.lower() in answer.lower()
+        answer_correct += 1 if answer_hit else 0
+
+        retrieval_status = "HIT"  if retrieval_hit else "MISS"
+        answer_status    = "CORRECT" if answer_hit else "WRONG"
 
         print(f"\n[{i:02d}] {item['question']}")
-        print(f"     Expected : {expected}")
-        print(f"     Status   : {status}")
+        print(f"     Expected   : {expected}")
+        print(f"     Retrieval  : {retrieval_status}")
+        print(f"     Answer     : {answer_status}")
 
         results.append({
-            "question" : item['question'],
-            "expected" : expected,
-            "rag_answer": answer[:300],
-            "correct"  : is_correct,
-            "status"   : status
+            "question"        : item['question'],
+            "expected"        : expected,
+            "retrieval_hit"   : retrieval_hit,
+            "retrieval_status": retrieval_status,
+            "rag_answer"      : answer[:300],
+            "answer_correct"  : answer_hit,
+            "answer_status"   : answer_status
         })
 
-    accuracy = (correct / len(ground_truth)) * 100
+    total             = len(ground_truth)
+    retrieval_accuracy = (retrieval_correct / total) * 100
+    answer_accuracy    = (answer_correct    / total) * 100
 
     print("\n" + "=" * 60)
-    print(f"Result: {correct}/{len(ground_truth)} correct — Accuracy: {accuracy:.0f}%")
+    print(f"Retrieval Accuracy : {retrieval_correct}/{total} = {retrieval_accuracy:.0f}%")
+    print(f"Answer Accuracy    : {answer_correct}/{total} = {answer_accuracy:.0f}%")
     print("=" * 60)
 
     report = {
-        "total"    : len(ground_truth),
-        "correct"  : correct,
-        "accuracy" : round(accuracy, 2),
-        "results"  : results
+        "total"             : total,
+        "retrieval_correct" : retrieval_correct,
+        "retrieval_accuracy": round(retrieval_accuracy, 2),
+        "answer_correct"    : answer_correct,
+        "answer_accuracy"   : round(answer_accuracy, 2),
+        "results"           : results
     }
 
     if save:

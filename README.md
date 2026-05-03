@@ -71,7 +71,7 @@ relevant data and generates accurate answers using a local LLM.
 
 1. Clone the repository
 
-    git clone https://github.com/yourusername/RAG-Project.git
+    git clone https://github.com/abdulhalimchy/RAG-Project.git
     cd RAG-Project
 
 2. Download the dataset
@@ -126,8 +126,12 @@ Run evaluation against 30 ground truth questions:
     python -m rag.evaluator
 
     Calculates ground truth answers for 30 questions directly from
-the dataset, runs them through the RAG pipeline, and compares
-the results. Saves accuracy report to results/evaluation.json.
+    the dataset and measures two things:
+      - Retrieval accuracy: was the expected answer found in the
+        retrieved chunks before the LLM?
+      - Answer accuracy: did the LLM response contain the correct
+        answer?
+    Saves full report to results/evaluation.json.
 
 Run evaluation without saving results:
 
@@ -162,8 +166,7 @@ Run evaluation without saving results:
 
 ## AI Tool Usage
 
-This project was developed with assistance from Claude AI
-(Anthropic) for code generation and guidance. All code was
+This project was developed with assistance from Claude AI for code generation in some cases and guidance. All code was
 reviewed, tested, debugged, and understood by the team.
 Full disclosure is provided in the technical report.
 
